@@ -1,0 +1,42 @@
+---
+  - name: Playbook
+    hosts: all
+    gather_facts: no
+
+    vars:
+     # Holds all log4j versions
+     allMatches: []
+     # Holds vulnerable versions
+     targetMatches: []
+
+    tasks
+      - name: Recursively find log4j in opt folder
+        register: opt_dirs
+        ignore_errors: yes
+        shell: find /opt -type f -name "*log4j*.jar" 2>/dev/null
+        no_log: true
+        
+      - name: Looking for log4j version
+        register: log4j_object
+        ignore_errors: yes
+        shell: unzip -p {{ item }} META-INF/maven/org.apache.logging.log4j/log4j-core/pom.properties | grep version
+        with_items:
+         - '{{ opt_dirs.stdout_lines }}'
+        no_log: true
+        
+      - name: Populating all matches array
+        set_fact:
+          allMatches: "{{ allMatches }} + [ { 'stdout': '{{item.stdout }}', 'item': '{{ item.item }}', 'ver': '{{ item.stdout.replace('version', '') }}' } ]"
+        when:
+          - item.stdout != "
+        loop: "{{ log41_object.results }}"
+        no_log: true
+
+        - name: Populating target matches array
+        set_fact:
+          targetMatches: "{{ targetMatches }} + [ {{ item }} ]"
+        when: item.ver is version('2.12.3', '<')
+        loop: "{{ allMatches }}"
+        no_log: true
+        
+        debug: var=targetMatches
